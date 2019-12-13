@@ -1,19 +1,17 @@
 from datetime import datetime
 
-import matplotlib
+import matplotlib as mpl
 import wx
 from pubsub.pub import sendMessage, subscribe, unsubscribe
 from serial.tools.list_ports import comports
+import os
 
-matplotlib.use('WXAgg')
+mpl.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib.style import use
+from matplotlib import rc_file
 from ThreadDecorators import in_main_thread
 from numpy import append
-
-
-use('App.mplstyle')
 
 
 class LoggerInterface(wx.Frame):
@@ -49,6 +47,9 @@ class LoggerInterface(wx.Frame):
 
         self.Bind(wx.EVT_MENU_RANGE, handler=self.set_interval, id=self.menu_bar.plotmenu.inter.GetMenuItems()[0].GetId(),
                   id2=self.menu_bar.plotmenu.inter.GetMenuItems()[-1].GetId())
+
+        self.Bind(wx.EVT_MENU_RANGE, handler=self.change_style, id=self.menu_bar.stylmenu.GetMenuItems()[0].GetId(),
+                  id2=self.menu_bar.stylmenu.GetMenuItems()[-1].GetId())
 
         hbox = wx.BoxSizer(orient=wx.HORIZONTAL)
         vbox = wx.BoxSizer(orient=wx.VERTICAL)
@@ -92,6 +93,9 @@ class LoggerInterface(wx.Frame):
     def request_data(*args):
         sendMessage(topicName='gui.request.sensor_temp')
 
+    def change_style(self, event):
+        self.matplot.set_style(self.menu_bar.stylmenu.FindItemById(event.GetId()).GetItemLabel())
+
 
 class MatplotWX(wx.Panel):
     def __init__(self, *args, **kwargs):
@@ -99,12 +103,13 @@ class MatplotWX(wx.Panel):
 
         subscribe(listener=self.update_temperature, topicName='engine.answer.sensor_temp')
 
-        self.is_plotting = False
+        self.styles = {s_file[:-9]: mpl.rc_params_from_file(os.path.join('Styles', s_file), use_default_template=False)
+                       for s_file in os.listdir('Styles')}
 
+        self.is_plotting = False
         self.startime = datetime.now()
 
         self.figure = Figure(figsize=(5, 4))
-
         self.axes = self.figure.add_subplot(111)
 
         self.text = self.axes.text(0.05, 0.9, '{:.2f} °C'.format(0), transform=self.axes.transAxes, size=12)
@@ -118,6 +123,9 @@ class MatplotWX(wx.Panel):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.canvas, flag=wx.GROW | wx.FIXED_MINSIZE, proportion=2)
         self.SetSizer(self.sizer)
+
+        self.set_style(style=list(self.styles)[0])
+
         self.Fit()
         self.figure.tight_layout()
 
@@ -152,10 +160,38 @@ class MatplotWX(wx.Panel):
         self.is_plotting = True
         subscribe(topicName='engine.answer.sensor_temp', listener=self.add_sensor_temp_point)
 
-    def clear_plot(self, args):
+    def clear_plot(self, *args):
         self.sens_temp_plot.set_xdata([])
         self.sens_temp_plot.set_ydata([])
         self.figure.canvas.draw()
+
+    def set_style(self, style):
+        try:
+            self.figure.set_facecolor(self.styles[style]['figure.facecolor'])
+
+            self.axes.set_facecolor(self.styles[style]['axes.facecolor'])
+            self.axes.spines['top'].set_color(self.styles[style]['axes.edgecolor'])
+            self.axes.spines['left'].set_color(self.styles[style]['axes.edgecolor'])
+            self.axes.spines['right'].set_color(self.styles[style]['axes.edgecolor'])
+            self.axes.spines['bottom'].set_color(self.styles[style]['axes.edgecolor'])
+
+            self.axes.xaxis.label.set_color(self.styles[style]['axes.labelcolor'])
+            self.axes.yaxis.label.set_color(self.styles[style]['axes.labelcolor'])
+            self.axes.tick_params(which='both', axis='x', labelcolor=self.styles[style]['xtick.color'],
+                                  color=self.styles[style]['xtick.color'])
+            self.axes.tick_params(which='both', axis='y', labelcolor=self.styles[style]['ytick.color'],
+                                  color=self.styles[style]['ytick.color'])
+
+            self.sens_temp_plot.set_color(self.styles[style]['lines.color'])
+
+            self.text.set_color(self.styles[style]['text.color'])
+
+            self.figure.canvas.draw()
+
+        except KeyError:
+            print('error')
+            # TODO: Implement a proper default styling case
+            pass
 
 
 class Menubar(wx.MenuBar):
@@ -169,11 +205,13 @@ class Menubar(wx.MenuBar):
         self.logmenu = LoggingMenu()
         self.dev_menu = DeviceMenu()
         self.plotmenu = PlottingMenu()
+        self.stylmenu = StyleMenu()
 
         self.Append(filemenu, 'File')
         self.Append(self.dev_menu, 'Devices')
         self.Append(self.logmenu, 'Logging')
         self.Append(self.plotmenu, 'Plotting')
+        self.Append(self.stylmenu, 'Style')
 
 
 class DeviceMenu(wx.Menu):
@@ -290,3 +328,13 @@ class PlottingMenu(wx.Menu):
         self.inter.GetMenuItems()[1].Check()
 
         self.AppendSubMenu(submenu=self.inter, text='Update interval (s)')
+
+
+class StyleMenu(wx.Menu):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for style in os.listdir('Styles'):
+            self.Append(item=os.path.splitext(style)[0], id=wx.ID_ANY, kind=wx.ITEM_RADIO)
+
+        self.GetMenuItems()[0].Check()

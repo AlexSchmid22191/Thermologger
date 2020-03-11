@@ -9,7 +9,6 @@ from pubsub.pub import sendMessage, subscribe, unsubscribe
 from serial import SerialException, SerialTimeoutException
 
 from Devices.Keithly import Keithly
-from Devices.Leybold import LeyboldCenterThree
 from Devices.Pyrometer import Pyrometer
 from Devices.Thermolino import Thermolino
 from Devices.Thermoplatino import Thermoplatino
@@ -23,7 +22,7 @@ class LoggerEngine:
         self.com_lock = Lock()
 
         self.sensor_types = {'Pyrometer': Pyrometer, 'Thermolino': Thermolino, 'Keithly': Keithly,
-                             'Thermoplatino': Thermoplatino, 'Leybold Center Three': LeyboldCenterThree}
+                             'Thermoplatino': Thermoplatino}
 
         self.sensor = None
         self.sensor_port = None

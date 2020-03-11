@@ -223,6 +223,7 @@ class DeviceMenu(wx.Menu):
         self.sensor_type_menu.Append(item='Thermolino', id=wx.ID_ANY, kind=wx.ITEM_RADIO)
         self.sensor_type_menu.Append(item='Keithly 2000', id=wx.ID_ANY, kind=wx.ITEM_RADIO)
         self.sensor_type_menu.Append(item='Pyrometer', id=wx.ID_ANY, kind=wx.ITEM_RADIO)
+        self.sensor_type_menu.Append(item='Leybold Center Three', id=wx.ID_ANY, kind=wx.ITEM_RADIO)
 
         self.sensor_com_menu = PortMenu()
         self.AppendSubMenu(text='Sensor type', submenu=self.sensor_type_menu)
